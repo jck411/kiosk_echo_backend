@@ -43,8 +43,7 @@ async function loadPrompt() {
     const status = $("#prompt-status");
     setStatus(status, "Loading...");
     try {
-        const client = $("#prompt-client").value;
-        const llm = await api(`/api/clients/${client}/llm`);
+        const llm = await api("/api/settings/llm");
         $("#prompt-model").value = llm.model || "";
         $("#prompt-text").value = llm.system_prompt || "";
         setStatus(status, "Loaded.", "ok");
@@ -53,14 +52,11 @@ async function loadPrompt() {
     }
 }
 
-$("#prompt-client").addEventListener("change", loadPrompt);
-
 $("#prompt-save").addEventListener("click", async () => {
     const status = $("#prompt-status");
     setStatus(status, "Saving...");
     try {
-        const client = $("#prompt-client").value;
-        await api(`/api/clients/${client}/llm`, {
+        await api("/api/settings/llm", {
             method: "PUT",
             body: JSON.stringify({
                 model: $("#prompt-model").value,
@@ -78,8 +74,7 @@ $("#prompt-reset").addEventListener("click", async () => {
     const status = $("#prompt-status");
     setStatus(status, "Resetting...");
     try {
-        const client = $("#prompt-client").value;
-        await api(`/api/clients/${client}/llm/reset`, { method: "POST" });
+        await api("/api/settings/llm/reset", { method: "POST" });
         await loadPrompt();
         setStatus(status, "Reset.", "ok");
     } catch (e) {
@@ -92,10 +87,9 @@ async function loadMcp() {
     const status = $("#mcp-status");
     setStatus(status, "Loading...");
     try {
-        const client = $("#mcp-client").value;
         const [serversResp, prefs] = await Promise.all([
             api("/api/mcp/servers/"),
-            api(`/api/mcp/preferences/${client}`),
+            api("/api/mcp/preferences"),
         ]);
         renderMcpTable(serversResp.servers || [], prefs);
         setStatus(status, "Loaded.", "ok");
@@ -105,7 +99,10 @@ async function loadMcp() {
 }
 
 function renderMcpTable(servers, prefs) {
-    const allowedSet = new Set(prefs?.allowed_servers || []);
+    const configured = prefs?.enabled_servers;
+    const allowedSet = new Set(
+        configured == null ? servers.map((server) => server.id) : configured
+    );
     const tbody = $("#mcp-table tbody");
     tbody.innerHTML = "";
     servers.forEach((s) => {
@@ -119,32 +116,12 @@ function renderMcpTable(servers, prefs) {
         tr.innerHTML = `
       <td><strong>${s.id}</strong><br><span style="color:var(--muted);font-size:11px">${s.url || ""}</span></td>
       <td class="status-cell ${statusKind}">${statusKind}</td>
-      <td><input type="checkbox" data-server-enabled="${s.id}" ${s.enabled ? "checked" : ""}></td>
       <td><input type="checkbox" data-allowed="${s.id}" ${allowedSet.has(s.id) ? "checked" : ""}></td>
       <td class="tools">${tools || "<em style='color:var(--muted)'>(none / not connected)</em>"}</td>
     `;
         tbody.appendChild(tr);
     });
-
-    // Wire global server enable toggles (PATCH /api/mcp/servers/{id})
-    tbody.querySelectorAll("input[data-server-enabled]").forEach((cb) => {
-        cb.addEventListener("change", async () => {
-            const id = cb.dataset.serverEnabled;
-            try {
-                await api(`/api/mcp/servers/${id}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({ enabled: cb.checked }),
-                });
-                await loadMcp();
-            } catch (e) {
-                alert(`Failed to toggle ${id}: ${e.message}`);
-                cb.checked = !cb.checked;
-            }
-        });
-    });
 }
-
-$("#mcp-client").addEventListener("change", loadMcp);
 
 $("#mcp-refresh").addEventListener("click", async () => {
     const status = $("#mcp-status");
@@ -162,13 +139,12 @@ $("#mcp-save").addEventListener("click", async () => {
     const status = $("#mcp-status");
     setStatus(status, "Saving...");
     try {
-        const client = $("#mcp-client").value;
         const allowed = Array.from(
             document.querySelectorAll("#mcp-table input[data-allowed]:checked")
         ).map((cb) => cb.dataset.allowed);
-        await api(`/api/mcp/preferences/${client}`, {
+        await api("/api/mcp/preferences", {
             method: "PUT",
-            body: JSON.stringify({ allowed_servers: allowed }),
+            body: JSON.stringify({ enabled_servers: allowed }),
         });
         setStatus(status, "Saved.", "ok");
     } catch (e) {
@@ -176,11 +152,10 @@ $("#mcp-save").addEventListener("click", async () => {
     }
 });
 
-// =============== Raw client settings ===============
+// =============== Raw kiosk settings ===============
 function settingsPath() {
-    const client = $("#settings-client").value;
     const section = $("#settings-section").value;
-    return `/api/clients/${client}/${section}`;
+    return `/api/settings/${section}`;
 }
 
 $("#settings-load").addEventListener("click", async () => {

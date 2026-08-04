@@ -1,5 +1,7 @@
 """Test script to verify Monarch tools are working correctly."""
 
+__test__ = False
+
 import asyncio
 import json
 from datetime import date

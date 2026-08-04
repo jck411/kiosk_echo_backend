@@ -1,8 +1,8 @@
 # Chat Backend (FastAPI)
 
-FastAPI backend for AI chat with MCP tool orchestration. Streams responses from
-OpenRouter, manages multi-client settings (kiosk, svelte), and exposes tools
-hosted on external MCP servers.
+FastAPI backend for the kiosk's AI chat and voice features. It streams responses
+from OpenRouter, manages kiosk settings, and exposes tools hosted on external
+MCP servers.
 
 This is a **backend-only repo**. The kiosk web UI lives in
 [`kiosk_echo_frontend`](https://github.com/jck411/kiosk_echo_frontend) (separate
@@ -27,7 +27,7 @@ Then open:
 |------|---------|
 | `src/backend/` | FastAPI app source |
 | `src/backend/admin/` | Vanilla admin UI (no build step) |
-| `src/backend/data/clients/` | Bundled default client settings |
+| `data/clients/kiosk/` | Runtime kiosk settings and presets |
 | `data/` | Runtime mutable data (gitignored) |
 | `tests/` | pytest suite |
 | `scripts/deploy.sh` | Deploy to Proxmox LXC |

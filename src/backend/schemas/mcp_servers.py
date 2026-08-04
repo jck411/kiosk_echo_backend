@@ -73,26 +73,25 @@ class MCPToolTogglePayload(BaseModel):
 
 
 # ------------------------------------------------------------------
-# Client preferences
+# Kiosk preferences
 # ------------------------------------------------------------------
 
 
-class ClientPreferences(BaseModel):
-    """Tool preferences for a single frontend."""
+class ToolPreferences(BaseModel):
+    """MCP servers exposed to the kiosk."""
 
-    client_id: str
     enabled_servers: list[str] | None
 
 
-class ClientPreferencesUpdate(BaseModel):
-    """Update payload for client preferences."""
+class ToolPreferencesUpdate(BaseModel):
+    """Update the MCP servers exposed to the kiosk."""
 
     enabled_servers: list[str]
 
 
 __all__ = [
-    "ClientPreferences",
-    "ClientPreferencesUpdate",
+    "ToolPreferences",
+    "ToolPreferencesUpdate",
     "MCPServerConnectPayload",
     "MCPServerDiscoverPayload",
     "MCPServerStatus",

@@ -1,8 +1,4 @@
-"""Bridge service to route model settings to per-client settings.
-
-This replaces the legacy global ModelSettingsService with a thin wrapper
-around ClientSettingsService that reads/writes settings for a specific client.
-"""
+"""Expose the kiosk's active model settings to the chat pipeline."""
 
 from __future__ import annotations
 
@@ -13,7 +9,7 @@ from typing import Any, Dict
 
 from ..openrouter import OpenRouterClient, OpenRouterError
 from ..schemas.client_settings import LlmSettings
-from ..services.client_settings_service import get_client_settings_service
+from ..services.client_settings_service import get_kiosk_settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -126,21 +122,14 @@ def _extract_model_capabilities(model_entry: Dict[str, Any]) -> ModelCapabilitie
 
 
 class ModelSettingsService:
-    """Bridge service that reads model settings from the svelte client settings.
-
-    This maintains API compatibility with the old global ModelSettingsService
-    but reads from ClientSettingsService for the specified client.
-    """
+    """Read active model settings from the kiosk settings store."""
 
     def __init__(
         self,
-        path=None,  # Kept for API compatibility, ignored
         default_model: str = "openai/gpt-4o-mini",
         *,
         default_system_prompt: str | None = None,
-        client_id: str = "svelte",
     ) -> None:
-        self._client_id = client_id
         self._default_model = default_model
         self._default_system_prompt = default_system_prompt
         self._lock = asyncio.Lock()
@@ -148,16 +137,11 @@ class ModelSettingsService:
         self._capabilities_cache: dict[str, ModelCapabilities] = {}
 
     def _get_service(self):
-        """Get the client settings service for our client."""
-        return get_client_settings_service(self._client_id)
-
-    @property
-    def client_id(self) -> str:
-        """Return the client identifier for these settings."""
-        return self._client_id
+        """Get the kiosk settings service."""
+        return get_kiosk_settings_service()
 
     def _get_llm(self) -> LlmSettings:
-        """Get current LLM settings from client settings service."""
+        """Get current kiosk LLM settings."""
         return self._get_service().get_llm()
 
     async def get_settings(self) -> "ActiveModelSettingsResponse":

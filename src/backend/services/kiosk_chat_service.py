@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator, Callable, Optional, Awaitable
 
 from backend.chat.orchestrator import ChatOrchestrator
 from backend.schemas.chat import ChatCompletionRequest, ChatMessage
-from backend.services.client_settings_service import get_client_settings_service
+from backend.services.client_settings_service import get_kiosk_settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class KioskChatService:
 
     def __init__(self, orchestrator: ChatOrchestrator):
         self._orchestrator = orchestrator
-        self._settings_service = get_client_settings_service("kiosk")
+        self._settings_service = get_kiosk_settings_service()
 
     def clear_history(self, client_id: str):
         """Clear conversation history for a client by clearing session."""

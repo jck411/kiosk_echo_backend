@@ -10,11 +10,11 @@
 
 <body>
     <header>
-        <h1>Backend Admin</h1>
+        <h1>Kiosk Settings</h1>
         <nav>
             <button data-tab="prompt" class="active">System Prompt</button>
             <button data-tab="mcp">MCP Servers</button>
-            <button data-tab="settings">Client Settings</button>
+            <button data-tab="settings">Kiosk Settings</button>
             <button data-tab="health">Health</button>
         </nav>
     </header>
@@ -23,12 +23,6 @@
         <!-- System Prompt -->
         <section id="prompt" class="tab active">
             <h2>System Prompt</h2>
-            <label>Client
-                <select id="prompt-client">
-                    <option value="kiosk">kiosk</option>
-                    <option value="svelte">svelte</option>
-                </select>
-            </label>
             <label>Model
                 <input id="prompt-model" type="text" />
             </label>
@@ -45,21 +39,13 @@
         <!-- MCP -->
         <section id="mcp" class="tab">
             <h2>MCP Servers</h2>
-            <p class="hint">Toggle which MCP servers are exposed to a client. Server enable/disable toggles persist
-                globally.</p>
-            <label>Client preferences for
-                <select id="mcp-client">
-                    <option value="kiosk">kiosk</option>
-                    <option value="svelte">svelte</option>
-                </select>
-            </label>
+            <p class="hint">Choose which MCP servers are exposed to the kiosk.</p>
             <table id="mcp-table">
                 <thead>
                     <tr>
                         <th>Server</th>
                         <th>Status</th>
-                        <th>Server Enabled</th>
-                        <th>Allowed for Client</th>
+                        <th>Allowed for Kiosk</th>
                         <th>Tools</th>
                     </tr>
                 </thead>
@@ -72,18 +58,12 @@
             </div>
         </section>
 
-        <!-- Raw client settings editor -->
+        <!-- Raw kiosk settings editor -->
         <section id="settings" class="tab">
-            <h2>Client Settings (raw JSON)</h2>
+            <h2>Kiosk Settings (raw JSON)</h2>
             <p class="hint">Edit raw LLM, STT, TTS, UI settings as JSON. Be careful — invalid values are rejected by the
                 API.</p>
             <div class="row">
-                <label>Client
-                    <select id="settings-client">
-                        <option value="kiosk">kiosk</option>
-                        <option value="svelte">svelte</option>
-                    </select>
-                </label>
                 <label>Section
                     <select id="settings-section">
                         <option value="llm">llm</option>

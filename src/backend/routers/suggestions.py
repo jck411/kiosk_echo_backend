@@ -7,7 +7,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from ..schemas.presets import Suggestion
+from ..schemas.suggestions import Suggestion
 from ..services.suggestions import SuggestionsService
 
 router = APIRouter()

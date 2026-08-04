@@ -10,7 +10,7 @@ from typing import List
 
 from pydantic import ValidationError
 
-from ..schemas.presets import Suggestion
+from ..schemas.suggestions import Suggestion
 
 logger = logging.getLogger(__name__)
 

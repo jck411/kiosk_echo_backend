@@ -87,10 +87,6 @@ class Settings(BaseSettings):
             "system_prompt",
         ),
     )
-    model_settings_path: Path = Field(
-        default_factory=lambda: Path("data/model_settings.json"),
-        validation_alias=AliasChoices("MODEL_SETTINGS_PATH", "model_settings_path"),
-    )
     mcp_servers_path: Path = Field(
         default_factory=lambda: Path("data/mcp_servers.json"),
         validation_alias=AliasChoices("MCP_SERVERS_PATH", "mcp_servers_path"),
@@ -110,10 +106,6 @@ class Settings(BaseSettings):
             "List of origins allowed by CORS. Defaults to '*' for LAN-only setups; "
             "restrict to specific origins (e.g. https://chat.jackshome.com) for production."
         ),
-    )
-    presets_path: Path = Field(
-        default_factory=lambda: Path("data/presets.json"),
-        validation_alias=AliasChoices("PRESETS_PATH", "presets_path"),
     )
     suggestions_path: Path = Field(
         default_factory=lambda: Path("data/suggestions.json"),
@@ -151,10 +143,6 @@ class Settings(BaseSettings):
             "ATTACHMENTS_RETENTION_DAYS",
             "attachments_retention_days",
         ),
-    )
-    legacy_attachments_dir: Path = Field(
-        default_factory=lambda: Path("data/uploads"),
-        validation_alias=AliasChoices("LEGACY_ATTACHMENTS_DIR"),
     )
     gcs_bucket_name: str = Field(
         default="openrouter-chat",

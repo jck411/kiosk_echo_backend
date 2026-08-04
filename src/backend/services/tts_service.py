@@ -8,7 +8,7 @@ from typing import AsyncGenerator, Optional
 import openai
 
 from backend.schemas.client_settings import TtsSettings
-from backend.services.client_settings_service import get_client_settings_service
+from backend.services.client_settings_service import get_kiosk_settings_service
 from backend.services.openai_tts_processor import process_tts_streams
 from backend.services.text_segmenter import process_text_chunks
 
@@ -37,7 +37,7 @@ class TTSService:
             )
         return self._openai_client
 
-    async def warm_connection(self, settings_client_id: str = "voice") -> None:
+    async def warm_connection(self) -> None:
         """
         Pre-warm the OpenAI TTS connection by establishing TLS handshake.
 
@@ -47,7 +47,7 @@ class TTSService:
         if self._connection_warmed:
             return
 
-        settings = self.get_settings(settings_client_id)
+        settings = self.get_settings()
         if not settings.enabled:
             return
 
@@ -63,18 +63,18 @@ class TTSService:
         except Exception as e:
             logger.warning(f"TTS connection pre-warm failed (non-fatal): {e}")
 
-    def get_settings(self, settings_client_id: str = "voice") -> TtsSettings:
-        """Get current TTS settings for the specified client."""
-        return get_client_settings_service(settings_client_id).get_tts()
+    def get_settings(self) -> TtsSettings:
+        """Get the kiosk's current TTS settings."""
+        return get_kiosk_settings_service().get_tts()
 
-    async def synthesize(self, text: str, settings_client_id: str = "voice") -> bytes:
+    async def synthesize(self, text: str) -> bytes:
         """
         Synthesize text to audio (non-streaming).
 
         Returns raw audio bytes in the configured format.
         Returns empty bytes if TTS is disabled.
         """
-        settings = self.get_settings(settings_client_id)
+        settings = self.get_settings()
 
         if not settings.enabled:
             logger.debug("TTS is disabled, skipping synthesis")
@@ -102,7 +102,6 @@ class TTSService:
         self,
         text: str,
         stop_event: Optional[asyncio.Event] = None,
-        settings_client_id: str = "voice",
     ) -> AsyncGenerator[bytes, None]:
         """
         Stream TTS audio for a single text.
@@ -110,7 +109,7 @@ class TTSService:
         Yields audio chunks as they become available.
         Respects stop_event for early termination.
         """
-        settings = self.get_settings(settings_client_id)
+        settings = self.get_settings()
 
         if not settings.enabled:
             logger.debug("TTS is disabled, skipping streaming synthesis")
@@ -144,7 +143,6 @@ class TTSService:
     async def create_streaming_pipeline(
         self,
         stop_event: asyncio.Event,
-        settings_client_id: str = "voice",
     ) -> tuple[asyncio.Queue, asyncio.Queue, asyncio.Task, asyncio.Task]:
         """
         Create a full TTS streaming pipeline with text segmentation.
@@ -170,7 +168,7 @@ class TTSService:
                     break
                 # Send audio to client
         """
-        settings = self.get_settings(settings_client_id)
+        settings = self.get_settings()
 
         chunk_queue: asyncio.Queue = asyncio.Queue()
         phrase_queue: asyncio.Queue = asyncio.Queue()
@@ -203,6 +201,6 @@ class TTSService:
         logger.debug("Created TTS streaming pipeline")
         return chunk_queue, audio_queue, segmenter_task, tts_task
 
-    def get_sample_rate(self, settings_client_id: str = "voice") -> int:
-        """Get the sample rate for the current settings."""
-        return self.get_settings(settings_client_id).sample_rate
+    def get_sample_rate(self) -> int:
+        """Get the sample rate for the current kiosk settings."""
+        return self.get_settings().sample_rate

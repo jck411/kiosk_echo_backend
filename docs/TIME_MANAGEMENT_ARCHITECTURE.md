@@ -35,7 +35,7 @@ The time management system is built on two core modules that provide consistent 
 │  - RFC3339 parsing               │    │   timezone (default from │
 │  - ISO time string parsing       │    │   time_context)          │
 │  - Database timestamp formatting │    │                          │
-│  - Keyword parsing (today, etc.) │    │ GET /api/clients/        │
+│  - Keyword parsing (today, etc.) │    │ GET /api/settings/ui     │
 └────────────┬─────────────────────┘    │   kiosk/ui               │
              │                           └──────────┬───────────────┘
              │                                      │
@@ -322,7 +322,7 @@ The kiosk frontend fetches its display timezone from the backend's `UiSettings` 
 
 ```javascript
 // ConfigContext fetches settings on app init
-GET /api/clients/kiosk/ui
+GET /api/settings/ui
 // Returns: { idle_return_delay_ms: 10000, display_timezone: "America/New_York" }
 
 // Components use the timezone via React hook
@@ -344,7 +344,7 @@ time_context.py (EASTERN_TIMEZONE_NAME)
        ↓
 client_settings.py (UiSettings.display_timezone default)
        ↓
-GET /api/clients/kiosk/ui
+GET /api/settings/ui
        ↓
 ConfigContext.jsx (fetches and caches)
        ↓
@@ -362,13 +362,13 @@ Clock, Calendar, Alarm components
 - Kiosk displays correct local time regardless of device system timezone
 - Single configuration point (backend) for all clients
 - No hardcoded timezones in frontend code
-- Easy to override per-client via API
+- Easy to override for the kiosk via API
 
-**Per-Client Timezone Override**:
+**Kiosk Timezone Override**:
 
 ```bash
 # Change kiosk timezone to Pacific Time
-PUT /api/clients/kiosk/ui
+PUT /api/settings/ui
 {
   "display_timezone": "America/Los_Angeles"
 }
@@ -509,7 +509,7 @@ client_data = {
 ### Core Modules
 - **DateTime Utilities**: `src/backend/utils/datetime_utils.py`
 - **Time Context**: `src/backend/services/time_context.py`
-- **Client Settings Schema**: `src/backend/schemas/client_settings.py` (UiSettings.display_timezone)
+- **Kiosk Settings Schema**: `src/backend/schemas/client_settings.py` (UiSettings.display_timezone)
 
 ### Integration Points
 - **Chat Orchestrator**: `src/backend/chat/orchestrator.py`
@@ -517,7 +517,7 @@ client_data = {
 - **Repository**: `src/backend/repository.py`
 - **Logging Handlers**: `src/backend/logging_handlers.py`
 - **Conversation Logging**: `src/backend/services/conversation_logging.py`
-- **Client Settings Router**: `src/backend/routers/clients.py` (GET/PUT /api/clients/{client_id}/ui)
+- **Kiosk Settings Router**: `src/backend/routers/settings.py` (GET/PUT /api/settings/ui)
 
 ### Frontend (Kiosk)
 - **Config Context**: `frontend-kiosk/src/context/ConfigContext.jsx`

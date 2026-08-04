@@ -108,17 +108,6 @@ async def upload_attachment(
     return AttachmentUploadResponse(attachment=resource)
 
 
-@router.get("/{attachment_id}/content")
-async def download_attachment(attachment_id: str) -> None:
-    raise HTTPException(
-        status_code=410,
-        detail=(
-            "Direct downloads are no longer supported. "
-            "Use the signed URL provided when the attachment was created."
-        ),
-    )
-
-
 __all__ = [
     "router",
     "get_attachment_service",

@@ -1,7 +1,7 @@
 """Configuration loader and aggregator for MCP tool servers.
 
 The backend is a pure MCP client.
-Servers are external (LXC 110) — the backend only connects to URLs and discovers tools.
+Servers are external (LXC 117) — the backend only connects to URLs and discovers tools.
 """
 
 from __future__ import annotations
@@ -62,12 +62,12 @@ async def _run_with_timeout(coro: Any, timeout: float) -> Any:
 class MCPServerConfig(BaseModel):
     """Declarative description of an MCP server the backend connects to."""
 
-    model_config = ConfigDict(extra="ignore")  # Silently drop legacy fields
+    model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., min_length=1, description="Stable identifier for the server")
     url: str = Field(
         ...,
-        description="Full MCP endpoint URL (e.g. http://192.168.1.110:9003/mcp)",
+        description="Full MCP endpoint URL (e.g. http://192.168.1.117:9004/mcp)",
     )
     enabled: bool = Field(default=True, description="Whether to connect to this server")
     bearer_token_env_var: str | None = Field(
@@ -186,7 +186,7 @@ def _load_mcp_port_range() -> range:
         Path(__file__).parents[3] / "data" / "mcp_ports.conf",
         Path(__file__).parent.parent / "data" / "mcp_ports.conf",
     ]
-    start, end = 9003, 9016  # MCP discovery range. Scanned on all discovery_hosts.
+    start, end = 9004, 9015  # MCP discovery range. Scanned on all discovery_hosts.
     for config_path in config_paths:
         try:
             for line in config_path.read_text().splitlines():

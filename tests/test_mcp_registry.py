@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from mcp.types import CallToolResult, Tool
+from pydantic import ValidationError
 
 from backend.chat.mcp_registry import (
     MCPServerConfig,
@@ -167,26 +168,15 @@ def test_config_missing_bearer_token_returns_no_headers(
     assert cfg.http_headers() == {}
 
 
-def test_config_ignores_extra_fields() -> None:
-    """Legacy fields like module, command, contexts etc. are silently dropped."""
-    cfg = MCPServerConfig.model_validate(
-        {
-            "id": "legacy",
-            "url": "http://127.0.0.1:9001/mcp",
-            "module": "backend.mcp_servers.foo",
-            "command": ["python", "-m", "foo"],
-            "cwd": "/tmp",
-            "env": {"FOO": "bar"},
-            "contexts": ["calendar"],
-            "tool_overrides": {},
-            "client_enabled": {"svelte": True},
-            "tool_prefix": "pfx",
-        }
-    )
-    assert cfg.id == "legacy"
-    assert cfg.url == "http://127.0.0.1:9001/mcp"
-    # Legacy fields are not present on the model
-    assert not hasattr(cfg, "module") or getattr(cfg, "module", None) is None
+def test_config_rejects_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        MCPServerConfig.model_validate(
+            {
+                "id": "test",
+                "url": "http://127.0.0.1:9001/mcp",
+                "command": ["python", "-m", "foo"],
+            }
+        )
 
 
 # ------------------------------------------------------------------

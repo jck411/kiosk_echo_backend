@@ -230,25 +230,6 @@ As a safety net, configure a bucket lifecycle rule:
 
 This auto-deletes objects older than retention period + buffer (e.g., 7 days retention + 2 days = 9 days).
 
-## Migration Notes
-
-### From Local Storage
-
-If migrating from local disk storage:
-
-1. Old `storage_path` column is ignored (can be dropped after migration)
-2. New uploads go directly to GCS
-3. Old files remain locally until manually archived or deleted
-4. No automatic backfill of old attachments to GCS
-
-### Rollback Plan
-
-If GCS is unavailable:
-
-1. Set `LEGACY_ATTACHMENTS_DIR=/path/to/local/storage` (emergency fallback)
-2. Code can fall back to local storage for MCP tools that need filesystem access
-3. Note: Main upload endpoint requires GCS, no automatic local fallback
-
 ## Testing
 
 Tests are in `tests/test_attachments.py` and cover:

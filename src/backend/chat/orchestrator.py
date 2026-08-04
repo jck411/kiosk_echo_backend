@@ -30,16 +30,13 @@ if TYPE_CHECKING:
     from ..config import Settings
     from ..services.attachments import AttachmentService
     from ..services.client_profiles import ClientProfileService
-    from ..services.client_tool_preferences import ClientToolPreferences
+    from ..services.tool_preferences import KioskToolPreferences
     from ..services.mcp_management import MCPManagementService
 
 logger = logging.getLogger(__name__)
 
 
 ToolPayload = list[dict[str, Any]]
-_KNOWN_CLIENT_IDS = {"cli", "kiosk", "svelte", "voice"}
-
-
 def _iter_attachment_ids(content: Any) -> Iterable[str]:
     if isinstance(content, list):
         for item in content:
@@ -98,9 +95,6 @@ class ChatOrchestrator:
             conversation_log_dir / "memory_backups"
         )
         self._model_settings = model_settings
-        self._model_settings_by_client: dict[str, ModelSettingsService] = {
-            model_settings.client_id: model_settings
-        }
         self._mcp_settings = mcp_settings
         self._streaming = StreamingHandler(
             self._client,
@@ -115,15 +109,15 @@ class ChatOrchestrator:
         self._init_lock = asyncio.Lock()
         self._ready = asyncio.Event()
         self._profile_service: ClientProfileService | None = None
-        self._tool_preferences: ClientToolPreferences | None = None
+        self._tool_preferences: KioskToolPreferences | None = None
         self._mcp_management: MCPManagementService | None = None
 
     def set_profile_service(self, service: "ClientProfileService | None") -> None:
         """Inject the profile service after application startup wiring."""
         self._profile_service = service
 
-    def set_tool_preferences(self, service: "ClientToolPreferences | None") -> None:
-        """Inject the client tool preferences after application startup wiring."""
+    def set_tool_preferences(self, service: "KioskToolPreferences | None") -> None:
+        """Inject kiosk tool preferences after application startup wiring."""
         self._tool_preferences = service
 
     def set_mcp_management(self, service: "MCPManagementService | None") -> None:
@@ -199,55 +193,6 @@ class ChatOrchestrator:
 
         self._streaming.set_attachment_service(service)
 
-    def _resolve_client_id(
-        self,
-        session_id: str,
-        metadata: dict[str, Any] | None,
-    ) -> str:
-        """Resolve client id from request metadata or session id prefix.
-
-        Resolution order:
-        1. Explicit client_id in metadata (CLI sends this)
-        2. Session ID prefix (kiosk_, cli_, voice_)
-        3. Default: "svelte" (main web frontend)
-
-        Each client has its own tool preferences in client_tool_preferences.json.
-        """
-
-        # 1. Check metadata for explicit client_id (CLI uses this approach)
-        if isinstance(metadata, dict):
-            candidate = metadata.get("client_id")
-            if isinstance(candidate, str):
-                candidate = candidate.strip()
-                if candidate:
-                    if candidate in _KNOWN_CLIENT_IDS:
-                        return candidate
-                    logger.info(
-                        "Unknown client_id '%s' provided; defaulting to svelte",
-                        candidate,
-                    )
-
-        # 2. Infer from session ID prefix (voice/kiosk use prefixed session IDs)
-        for prefix in ("kiosk_", "cli_", "voice_"):
-            if session_id.startswith(prefix):
-                return prefix.rstrip("_")
-
-        # 3. Default to main web frontend
-        return "svelte"
-
-    def _get_model_settings_for_client(self, client_id: str) -> ModelSettingsService:
-        """Return cached model settings service for the requested client."""
-
-        service = self._model_settings_by_client.get(client_id)
-        if service is None:
-            service = ModelSettingsService(
-                default_model=self._settings.default_model,
-                default_system_prompt=self._settings.openrouter_system_prompt,
-                client_id=client_id,
-            )
-            self._model_settings_by_client[client_id] = service
-        return service
-
     async def process_stream(
         self,
         request: ChatCompletionRequest,
@@ -274,8 +219,7 @@ class ChatOrchestrator:
             if isinstance(parent_candidate, str):
                 assistant_parent_message_id = parent_candidate
 
-        client_id = self._resolve_client_id(session_id, request_metadata)
-        model_settings = self._get_model_settings_for_client(client_id)
+        model_settings = self._model_settings
         stored_messages = await self._repo.get_messages(session_id)
         system_messages = [
             message for message in stored_messages if message.get("role") == "system"
@@ -375,7 +319,7 @@ class ChatOrchestrator:
                 )
 
         if allowed_servers is None and self._tool_preferences:
-            pref_servers = await self._tool_preferences.get_enabled_servers(client_id)
+            pref_servers = await self._tool_preferences.get_enabled_servers()
             if pref_servers is not None:
                 allowed_servers = set(pref_servers)
 
@@ -386,10 +330,9 @@ class ChatOrchestrator:
         else:
             tools_payload = self._mcp_client.get_openai_tools()
 
-        filter_source = f"profile:{profile_id}" if profile_id else f"client:{client_id}"
+        filter_source = f"profile:{profile_id}" if profile_id else "kiosk"
         logger.info(
-            "%s session %s: %d tools (source=%s, servers=%s)",
-            client_id,
+            "Kiosk session %s: %d tools (source=%s, servers=%s)",
             session_id,
             len(tools_payload),
             filter_source,

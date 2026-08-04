@@ -19,33 +19,16 @@ Routers (HTTP) → Services (business logic) → Repository (data access)
 - `OpenRouterClient`: HTTP client for OpenRouter API with streaming support
 - `ChatRepository`: SQLite data layer for conversations and attachments
 - `MCPToolAggregator`: Manages lifecycle of MCP servers and tool discovery
-- Service layer: `AttachmentService`, `ModelSettingsService`, `PresetService`, etc.
+- Service layer: `AttachmentService`, `ModelSettingsService`, and the kiosk
+  settings service.
 
-## Model settings and presets
+## Kiosk settings and presets
 
-- **Services**: `backend.services.model_settings.ModelSettingsService`,
-  `backend.services.presets.PresetService`.
-- **Storage**: `data/model_settings.json`, `data/presets.json`.
-- **Key endpoints**:
-  - `GET /api/settings/model`, `PUT /api/settings/model`
-  - `GET /api/settings/system-prompt`, `PUT /api/settings/system-prompt`
-  - `GET /api/presets/`, `GET /api/presets/{name}`
-  - `POST /api/presets/`, `PUT /api/presets/{name}`, `DELETE /api/presets/{name}`
-  - `POST /api/presets/{name}/apply`
-- **Flow**:
-  1. The frontend model picker persists the selected model through
-     `model_settings_store`, keeping the backend and UI in sync.
-  2. Presets snapshot the active backend state (model id, provider overrides,
-     parameter overrides, system prompt, and MCP configs) so any client can
-     restore the same environment later.
-  3. When applying a preset the backend updates model settings and pushes new
-     MCP server definitions to the orchestrator.
-- **Troubleshooting**:
-  - If presets appear to save the wrong model, confirm the UI successfully
-    persisted the current picker value before snapshotting.
-  - Inspect `data/model_settings.json` for the authoritative active model.
-  - Backend defaults fall back to `OPENROUTER_DEFAULT_MODEL` and optional
-    `OPENROUTER_SYSTEM_PROMPT` on first run.
+- **Storage**: `data/clients/kiosk/` contains LLM, STT, TTS, UI, and preset JSON.
+- **Settings API**: `GET/PUT /api/settings/{llm|stt|tts|ui}`.
+- **Presets API**: `/api/presets`.
+- **MCP preferences**: `GET/PUT /api/mcp/preferences`.
+- **Admin UI**: `/admin/` edits only the kiosk configuration.
 
 ## MCP servers
 
@@ -73,11 +56,9 @@ Routers (HTTP) → Services (business logic) → Repository (data access)
 - **Service**: `backend.services.attachments.AttachmentService` uploads bytes to
   private Google Cloud Storage, records metadata in SQLite, and keeps signed
   URLs fresh when messages are serialized.
-- **Environment knobs**: `ATTACHMENTS_MAX_SIZE_BYTES`,
-  `ATTACHMENTS_RETENTION_DAYS`, and optional `LEGACY_ATTACHMENTS_DIR` for
-  debugging or local development.
-- **Routes**: `POST /api/uploads` (create + return signed URL), legacy
-  download routes now respond with `410 Gone`.
+- **Environment knobs**: `ATTACHMENTS_MAX_SIZE_BYTES` and
+  `ATTACHMENTS_RETENTION_DAYS`.
+- **Route**: `POST /api/uploads` creates the object and returns a signed URL.
 - **Behaviour**:
   - MCP servers (running on Proxmox) can persist downloads to GCS through the
     shared attachment service and return signed URLs to the caller.
@@ -107,11 +88,8 @@ Routers (HTTP) → Services (business logic) → Repository (data access)
 | Path                     | Purpose                                               |
 |--------------------------|-------------------------------------------------------|
 | `data/chat_sessions.db`  | SQLite store for chat history and attachment metadata |
-| `data/model_settings.json` | Active model configuration                           |
-| `data/presets.json`      | Saved preset snapshots                                |
 | `data/mcp_servers.json`  | Persisted MCP server definitions                      |
 | `data/suggestions.json`  | Saved suggestion templates                            |
-| `data/uploads/`          | (Legacy) MCP staging area for local file operations   |
 | `data/tokens/`           | OAuth tokens minted during Google authorization flows |
 
 All `data/` contents are gitignored by default. Do not commit credentials or user data.
@@ -123,11 +101,6 @@ Settings are loaded with this priority (highest to lowest):
 1. **Environment variables** (`.env` file or system environment)
 2. **JSON config files** (`data/*.json`)
 3. **Built-in defaults** (defined in `config.py`)
-
-Example: Model selection resolves as:
-- `OPENROUTER_DEFAULT_MODEL` env var, if set
-- `data/model_settings.json` → `model_id` field, if present
-- Fallback to `"openai/gpt-4"` hardcoded default
 
 ## Development workflow
 

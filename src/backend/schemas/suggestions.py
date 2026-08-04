@@ -1,9 +1,4 @@
-"""Minimal presets schema for backward compatibility.
-
-This module provides the Suggestion schema used by the suggestions service.
-The legacy preset functionality has been removed in favor of per-client presets
-via ClientSettingsService.
-"""
+"""Suggestion schemas."""
 
 from pydantic import BaseModel, Field
 

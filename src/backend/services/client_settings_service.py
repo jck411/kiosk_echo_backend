@@ -1,8 +1,4 @@
-"""Generic client settings service.
-
-This service is parameterized by client_id and handles all settings
-operations for any client (kiosk, svelte, cli, etc.).
-"""
+"""Persistent settings for the kiosk application."""
 
 import json
 import logging
@@ -11,10 +7,10 @@ from pathlib import Path
 from typing import Optional
 
 from backend.schemas.client_settings import (
-    ClientPreset,
-    ClientPresets,
-    ClientPresetUpdate,
-    ClientSettings,
+    KioskPreset,
+    KioskPresets,
+    KioskPresetUpdate,
+    KioskSettings,
     LlmSettings,
     LlmSettingsUpdate,
     SttSettings,
@@ -28,30 +24,29 @@ from backend.schemas.client_settings import (
 logger = logging.getLogger(__name__)
 
 # Bundled defaults ship with the backend package.
-_BUNDLED_DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "clients"
+_BUNDLED_DATA_DIR = (
+    Path(__file__).resolve().parent.parent / "data" / "clients" / "kiosk"
+)
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _resolve_runtime_data_dir() -> Path:
-    """Resolve where mutable client settings should be written."""
-    configured_dir = os.getenv("CLIENT_SETTINGS_DATA_DIR")
+    """Resolve where mutable kiosk settings should be written."""
+    configured_dir = os.getenv("KIOSK_SETTINGS_DIR")
     if configured_dir:
         return Path(configured_dir).expanduser()
-    # Default to runtime data folder so deployments can mount/persist it.
-    return _PROJECT_ROOT / "data" / "clients"
+    return _PROJECT_ROOT / "data" / "clients" / "kiosk"
 
 
-class ClientSettingsService:
-    """Service for managing settings for a specific client."""
+class KioskSettingsService:
+    """Manage the kiosk's LLM, speech, UI, and preset settings."""
 
-    def __init__(self, client_id: str, data_dir: Optional[Path] = None):
-        self.client_id = client_id
-        runtime_data_dir = (
+    def __init__(self, data_dir: Optional[Path] = None):
+        self.base_path = (
             Path(data_dir).expanduser() if data_dir else _resolve_runtime_data_dir()
         )
-        self.base_path = runtime_data_dir / client_id
         # When using default runtime dir, fall back to bundled defaults for reads.
-        self.default_path = None if data_dir else _BUNDLED_DATA_DIR / client_id
+        self.default_path = None if data_dir else _BUNDLED_DATA_DIR
         self._cache: dict[str, object] = {}
 
     def _ensure_dir(self) -> None:
@@ -93,7 +88,7 @@ class ClientSettingsService:
         except OSError as exc:
             raise PermissionError(
                 f"Cannot save {name} settings to '{path}'. "
-                "Set CLIENT_SETTINGS_DATA_DIR to a writable directory."
+                "Set KIOSK_SETTINGS_DIR to a writable directory."
             ) from exc
         logger.debug(f"Saved {path}")
 
@@ -111,7 +106,7 @@ class ClientSettingsService:
             try:
                 settings = LlmSettings.model_validate(data)
             except Exception as e:
-                logger.warning(f"Invalid LLM settings for {self.client_id}: {e}")
+                logger.warning("Invalid kiosk LLM settings: %s", e)
                 settings = LlmSettings()
         else:
             settings = LlmSettings()
@@ -163,7 +158,7 @@ class ClientSettingsService:
             try:
                 settings = SttSettings.model_validate(data)
             except Exception as e:
-                logger.warning(f"Invalid STT settings for {self.client_id}: {e}")
+                logger.warning("Invalid kiosk STT settings: %s", e)
                 settings = SttSettings()
         else:
             settings = SttSettings()
@@ -180,6 +175,13 @@ class ClientSettingsService:
         self._cache["stt"] = merged
         return merged
 
+    def reset_stt(self) -> SttSettings:
+        """Reset STT settings to defaults."""
+        settings = SttSettings()
+        self._save_json("stt", settings.model_dump())
+        self._cache["stt"] = settings
+        return settings
+
     # =========================================================================
     # TTS Settings
     # =========================================================================
@@ -194,7 +196,7 @@ class ClientSettingsService:
             try:
                 settings = TtsSettings.model_validate(data)
             except Exception as e:
-                logger.warning(f"Invalid TTS settings for {self.client_id}: {e}")
+                logger.warning("Invalid kiosk TTS settings: %s", e)
                 settings = TtsSettings()
         else:
             settings = TtsSettings()
@@ -211,6 +213,13 @@ class ClientSettingsService:
         self._cache["tts"] = merged
         return merged
 
+    def reset_tts(self) -> TtsSettings:
+        """Reset TTS settings to defaults."""
+        settings = TtsSettings()
+        self._save_json("tts", settings.model_dump())
+        self._cache["tts"] = settings
+        return settings
+
     # =========================================================================
     # UI Settings
     # =========================================================================
@@ -225,7 +234,7 @@ class ClientSettingsService:
             try:
                 settings = UiSettings.model_validate(data)
             except Exception as e:
-                logger.warning(f"Invalid UI settings for {self.client_id}: {e}")
+                logger.warning("Invalid kiosk UI settings: %s", e)
                 settings = UiSettings()
         else:
             settings = UiSettings()
@@ -242,11 +251,18 @@ class ClientSettingsService:
         self._cache["ui"] = merged
         return merged
 
+    def reset_ui(self) -> UiSettings:
+        """Reset UI settings to defaults."""
+        settings = UiSettings()
+        self._save_json("ui", settings.model_dump())
+        self._cache["ui"] = settings
+        return settings
+
     # =========================================================================
     # Presets
     # =========================================================================
 
-    def get_presets(self) -> ClientPresets:
+    def get_presets(self) -> KioskPresets:
         """Get all presets for this client."""
         if "presets" in self._cache:
             return self._cache["presets"]  # type: ignore
@@ -254,17 +270,17 @@ class ClientSettingsService:
         data = self._load_json("presets")
         if data:
             try:
-                presets = ClientPresets.model_validate(data)
+                presets = KioskPresets.model_validate(data)
             except Exception as e:
-                logger.warning(f"Invalid presets for {self.client_id}: {e}")
-                presets = ClientPresets()
+                logger.warning("Invalid kiosk presets: %s", e)
+                presets = KioskPresets()
         else:
-            presets = ClientPresets()
+            presets = KioskPresets()
 
         self._cache["presets"] = presets
         return presets
 
-    def update_preset(self, index: int, update: ClientPresetUpdate) -> ClientPresets:
+    def update_preset(self, index: int, update: KioskPresetUpdate) -> KioskPresets:
         """Update a preset at the given index."""
         from datetime import datetime, timezone
 
@@ -310,7 +326,7 @@ class ClientSettingsService:
         self._save_presets(presets)
         return presets
 
-    def activate_preset(self, index: int) -> ClientSettings:
+    def activate_preset(self, index: int) -> KioskSettings:
         """Activate a preset and apply its settings (LLM only - MCP is separate)."""
         presets = self.get_presets()
         if index < 0 or index >= len(presets.presets):
@@ -329,13 +345,13 @@ class ClientSettingsService:
             self._save_json("tts", preset.tts.model_dump())
             self._cache["tts"] = preset.tts
 
-        return ClientSettings(
+        return KioskSettings(
             llm=preset.llm,
             stt=preset.stt,
             tts=preset.tts,
         )
 
-    def load_preset_settings(self, index: int) -> ClientSettings:
+    def load_preset_settings(self, index: int) -> KioskSettings:
         """Load settings from a preset without setting it as active (default)."""
         presets = self.get_presets()
         if index < 0 or index >= len(presets.presets):
@@ -352,13 +368,13 @@ class ClientSettingsService:
             self._save_json("tts", preset.tts.model_dump())
             self._cache["tts"] = preset.tts
 
-        return ClientSettings(
+        return KioskSettings(
             llm=preset.llm,
             stt=preset.stt,
             tts=preset.tts,
         )
 
-    def add_preset(self, preset: ClientPreset) -> ClientPresets:
+    def add_preset(self, preset: KioskPreset) -> KioskPresets:
         """Add a new preset."""
         from datetime import datetime, timezone
 
@@ -370,7 +386,7 @@ class ClientSettingsService:
         self._save_presets(presets)
         return presets
 
-    def delete_preset(self, index: int) -> ClientPresets:
+    def delete_preset(self, index: int) -> KioskPresets:
         """Delete a preset at the given index."""
         presets = self.get_presets()
         if index < 0 or index >= len(presets.presets):
@@ -385,7 +401,7 @@ class ClientSettingsService:
         self._save_presets(presets)
         return presets
 
-    def _save_presets(self, presets: ClientPresets) -> None:
+    def _save_presets(self, presets: KioskPresets) -> None:
         """Save presets to file."""
         self._save_json("presets", presets.model_dump())
         self._cache["presets"] = presets
@@ -394,16 +410,16 @@ class ClientSettingsService:
     # Full Settings Bundle
     # =========================================================================
 
-    def get_all(self) -> ClientSettings:
+    def get_all(self) -> KioskSettings:
         """Get complete settings bundle (excludes MCP - that's global)."""
-        return ClientSettings(
+        return KioskSettings(
             llm=self.get_llm(),
             stt=self.get_stt(),
             tts=self.get_tts(),
             ui=self.get_ui(),
         )
 
-    def reset_all(self) -> ClientSettings:
+    def reset_all(self) -> KioskSettings:
         """Reset all settings to defaults."""
         self._cache.clear()
         for name in ["llm", "stt", "tts", "ui", "presets"]:
@@ -414,26 +430,28 @@ class ClientSettingsService:
 
 
 # =============================================================================
-# Service Registry
+# Shared service
 # =============================================================================
 
-_services: dict[str, ClientSettingsService] = {}
+_service: KioskSettingsService | None = None
 
 
-def get_client_settings_service(client_id: str) -> ClientSettingsService:
-    """Get or create a settings service for the given client."""
-    if client_id not in _services:
-        _services[client_id] = ClientSettingsService(client_id)
-    return _services[client_id]
+def get_kiosk_settings_service() -> KioskSettingsService:
+    """Return the process-wide kiosk settings service."""
+    global _service
+    if _service is None:
+        _service = KioskSettingsService()
+    return _service
 
 
 def clear_service_cache() -> None:
-    """Clear the service registry (for testing)."""
-    _services.clear()
+    """Clear the shared service (for testing)."""
+    global _service
+    _service = None
 
 
 __all__ = [
-    "ClientSettingsService",
-    "get_client_settings_service",
+    "KioskSettingsService",
+    "get_kiosk_settings_service",
     "clear_service_cache",
 ]

@@ -13,7 +13,7 @@ from deepgram.core.events import EventType
 
 from backend.config import get_settings
 from backend.schemas.client_settings import SttSettings
-from backend.services.client_settings_service import get_client_settings_service
+from backend.services.client_settings_service import get_kiosk_settings_service
 
 try:
     import azure.cognitiveservices.speech as speechsdk
@@ -596,9 +596,9 @@ class STTService:
         self.api_key = api_key
         self.sessions: dict[str, DeepgramSession | AzureSttSession] = {}
 
-    def get_settings(self, settings_client_id: str = "voice") -> SttSettings:
-        """Get STT settings for the specified client."""
-        return get_client_settings_service(settings_client_id).get_stt()
+    def get_settings(self) -> SttSettings:
+        """Get the kiosk's STT settings."""
+        return get_kiosk_settings_service().get_stt()
 
     async def create_session(
         self,
@@ -606,19 +606,17 @@ class STTService:
         on_transcript: Callable[[str, bool], None],
         on_error: Optional[Callable[[str], None]] = None,
         on_speech_start: Optional[Callable[[], None]] = None,
-        settings_client_id: str = "voice",
     ):
         """
         Start a new live transcription session.
-        Routes to Azure or Deepgram based on client settings.
+        Routes to Azure or Deepgram based on kiosk settings.
         """
         try:
             # Close existing session if any
             if session_id in self.sessions:
                 await self.close_session(session_id)
 
-            # Get current STT settings for the requested client
-            stt_settings = self.get_settings(settings_client_id)
+            stt_settings = self.get_settings()
 
             loop = asyncio.get_running_loop()
 

@@ -6,34 +6,14 @@ from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from backend.services.client_settings_service import get_client_settings_service
+from backend.services.client_settings_service import get_kiosk_settings_service
 from backend.services.kiosk_chat_service import KioskChatService
 from backend.services.stt_service import STTService
 from backend.services.tts_service import TTSService
-from backend.services.voice_chat_service import VoiceChatService
 from backend.services.voice_session import VoiceConnectionManager
 
 router = APIRouter(prefix="/api/voice", tags=["Voice Assistant"])
 logger = logging.getLogger(__name__)
-
-# Client IDs that connect via the voice WebSocket endpoint
-_VOICE_WS_CLIENT_PREFIXES = ("kiosk_", "voice_")
-
-
-def resolve_settings_client_id(client_id: str) -> str:
-    """Map WebSocket client_id to settings client type.
-
-    Voice WebSocket connections use prefixed client IDs:
-    - kiosk_<uuid> → "kiosk"
-    - voice_<uuid> → "voice"
-
-    This controls which STT/TTS/LLM settings profile is used.
-    """
-    for prefix in _VOICE_WS_CLIENT_PREFIXES:
-        if client_id.startswith(prefix):
-            return prefix.rstrip("_")
-    return "voice"
-
 
 async def handle_connection(
     websocket: WebSocket,
@@ -41,8 +21,7 @@ async def handle_connection(
     manager: VoiceConnectionManager,
     stt_service: STTService,
     tts_service: TTSService,
-    voice_chat_service: Optional[VoiceChatService],
-    kiosk_chat_service: Optional[KioskChatService],
+    kiosk_chat_service: KioskChatService,
 ):
     """
     Main loop for handling a single client's WebSocket connection.
@@ -54,14 +33,11 @@ async def handle_connection(
     """
     await manager.connect(websocket, client_id)
 
-    settings_client_id = resolve_settings_client_id(client_id)
-    settings_service = get_client_settings_service(settings_client_id)
-    chat_service = voice_chat_service
-    if settings_client_id == "kiosk" and kiosk_chat_service is not None:
-        chat_service = kiosk_chat_service
+    settings_service = get_kiosk_settings_service()
+    chat_service = kiosk_chat_service
 
     # Pre-warm TTS connection for faster first response (runs in background)
-    asyncio.create_task(tts_service.warm_connection(settings_client_id))
+    asyncio.create_task(tts_service.warm_connection())
 
     tts_cancel_event = asyncio.Event()
     tts_task: Optional[asyncio.Task] = None
@@ -99,7 +75,7 @@ async def handle_connection(
                 full_response = ""
                 response_interrupted = False
 
-                tts_settings = tts_service.get_settings(settings_client_id)
+                tts_settings = tts_service.get_settings()
                 tts_enabled = tts_settings.enabled
 
                 # Create TTS streaming pipeline
@@ -108,10 +84,7 @@ async def handle_connection(
                     audio_queue,
                     segmenter_task,
                     tts_processor_task,
-                ) = await tts_service.create_streaming_pipeline(
-                    tts_cancel_event,
-                    settings_client_id=settings_client_id,
-                )
+                ) = await tts_service.create_streaming_pipeline(tts_cancel_event)
 
                 # Get sample rate for audio playback
                 sample_rate = tts_settings.sample_rate
@@ -277,7 +250,6 @@ async def handle_connection(
             client_id,
             on_transcript_received,
             on_stt_error,
-            settings_client_id=settings_client_id,
         )
 
     try:
@@ -592,15 +564,12 @@ async def voice_connect(websocket: WebSocket):
     manager = app_state.voice_manager
     stt_service = app_state.stt_service
     tts_service = app_state.tts_service
-    voice_chat_service = getattr(app_state, "voice_chat_service", None)
     kiosk_chat_service = getattr(app_state, "kiosk_chat_service", None)
 
-    if voice_chat_service is None:
-        # Fallback if service not initialized properly (e.g. startup error)
-        # We allow connection but LLM calls will fail individually
-        logger.warning("VoiceChatService not found in app state")
     if kiosk_chat_service is None:
-        logger.warning("KioskChatService not found in app state")
+        logger.error("KioskChatService not initialized")
+        await websocket.close(code=1011, reason="Server not ready")
+        return
 
     await handle_connection(
         websocket,
@@ -608,6 +577,5 @@ async def voice_connect(websocket: WebSocket):
         manager,
         stt_service,
         tts_service,
-        voice_chat_service,
         kiosk_chat_service,
     )

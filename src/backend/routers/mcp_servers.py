@@ -5,8 +5,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..schemas.mcp_servers import (
-    ClientPreferences,
-    ClientPreferencesUpdate,
     MCPServerConnectPayload,
     MCPServerDiscoverPayload,
     MCPServerStatus,
@@ -14,8 +12,10 @@ from ..schemas.mcp_servers import (
     MCPServerUpdatePayload,
     MCPToolInfo,
     MCPToolTogglePayload,
+    ToolPreferences,
+    ToolPreferencesUpdate,
 )
-from ..services.client_tool_preferences import ClientToolPreferences
+from ..services.tool_preferences import KioskToolPreferences
 from ..services.mcp_management import MCPManagementService
 from ..services.mcp_server_settings import MCPServerSettingsService
 
@@ -41,10 +41,10 @@ def get_mcp_settings_service(request: Request) -> MCPServerSettingsService:
     return service
 
 
-def get_tool_preferences(request: Request) -> ClientToolPreferences:
-    service = getattr(request.app.state, "client_tool_preferences", None)
+def get_tool_preferences(request: Request) -> KioskToolPreferences:
+    service = getattr(request.app.state, "tool_preferences", None)
     if service is None:
-        raise RuntimeError("Client tool preferences service is not configured")
+        raise RuntimeError("Kiosk tool preferences service is not configured")
     return service
 
 
@@ -186,35 +186,26 @@ async def refresh_mcp_servers(
 
 
 # ------------------------------------------------------------------
-# Client preference endpoints
+# Kiosk preference endpoints
 # ------------------------------------------------------------------
 
 
-@router.get("/preferences/{client_id}", response_model=ClientPreferences)
-async def get_client_preferences(
-    client_id: str,
-    prefs: ClientToolPreferences = Depends(get_tool_preferences),
-) -> ClientPreferences:
-    """Get tool preferences for a frontend."""
-    servers = await prefs.get_enabled_servers(client_id)
-    return ClientPreferences(
-        client_id=client_id,
-        enabled_servers=servers,
-    )
+@router.get("/preferences", response_model=ToolPreferences)
+async def get_tool_preferences_route(
+    prefs: KioskToolPreferences = Depends(get_tool_preferences),
+) -> ToolPreferences:
+    """Get MCP server preferences for the kiosk."""
+    return ToolPreferences(enabled_servers=await prefs.get_enabled_servers())
 
 
-@router.put("/preferences/{client_id}", response_model=ClientPreferences)
-async def update_client_preferences(
-    client_id: str,
-    payload: ClientPreferencesUpdate,
-    prefs: ClientToolPreferences = Depends(get_tool_preferences),
-) -> ClientPreferences:
-    """Update which MCP servers a frontend may use."""
-    await prefs.set_enabled_servers(client_id, payload.enabled_servers)
-    return ClientPreferences(
-        client_id=client_id,
-        enabled_servers=payload.enabled_servers,
-    )
+@router.put("/preferences", response_model=ToolPreferences)
+async def update_tool_preferences(
+    payload: ToolPreferencesUpdate,
+    prefs: KioskToolPreferences = Depends(get_tool_preferences),
+) -> ToolPreferences:
+    """Update which MCP servers the kiosk may use."""
+    await prefs.set_enabled_servers(payload.enabled_servers)
+    return ToolPreferences(enabled_servers=payload.enabled_servers)
 
 
 __all__ = ["router"]

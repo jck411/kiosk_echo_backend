@@ -1,5 +1,4 @@
 import pathlib
-import signal
 import sys
 
 import psutil
@@ -18,10 +17,6 @@ def cleanup_processes():
     """Kill any lingering child processes after all tests complete."""
     yield
 
-    # Kill any child processes (MCP servers) that are still running
-    import os
-    import time
-
     try:
         current_process = psutil.Process()
         children = current_process.children(recursive=True)
@@ -32,28 +27,19 @@ def cleanup_processes():
         for child in children:
             try:
                 print(f"[CLEANUP] Terminating process {child.pid} ({child.name()})")
-                child.send_signal(signal.SIGTERM)
+                child.terminate()
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
-        # Give processes a moment to terminate gracefully
-        time.sleep(0.5)
-
-        # Force kill any that are still alive
-        for child in children:
+        _, alive = psutil.wait_procs(children, timeout=0.5)
+        for child in alive:
             try:
-                if child.is_running():
-                    print(f"[CLEANUP] Force killing process {child.pid}")
-                    child.kill()
+                print(f"[CLEANUP] Force killing process {child.pid}")
+                child.kill()
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
+        psutil.wait_procs(alive, timeout=0.5)
 
-        # Wait a bit more for processes to actually die
-        time.sleep(0.3)
-
-        print("[CLEANUP] Process cleanup complete - forcing exit")
+        print("[CLEANUP] Process cleanup complete")
     except Exception as e:
         print(f"[CLEANUP] Error during cleanup: {e}")
-    finally:
-        # Always force exit to avoid pytest hanging on cleanup
-        os._exit(0)

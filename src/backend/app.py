@@ -18,16 +18,16 @@ from .logging_settings import parse_logging_settings
 from .routers.alarms import router as alarms_router
 from .routers.azure_transcription import router as azure_stt_router
 from .routers.chat import router as chat_router
-from .routers.clients import router as clients_router
 from .routers.google_auth import router as google_auth_router
 from .routers.keyword_detection import router as keyword_router
 from .routers.kiosk_calendar import router as kiosk_calendar_router
 from .routers.mcp_servers import router as mcp_router
 from .routers.monarch_auth import router as monarch_auth_router
 from .routers.profiles import router as profiles_router
+from .routers.presets import router as presets_router
+from .routers.settings import router as settings_router
 from .routers.slideshow import router as slideshow_router
 from .routers.spotify_auth import router as spotify_auth_router
-from .routers.stt import router as stt_router
 from .routers.suggestions import router as suggestions_router
 from .routers.uploads import router as uploads_router
 from .routers.weather import router as weather_router
@@ -36,11 +36,11 @@ from .services.alarm_scheduler import AlarmSchedulerService
 from .services.attachments import AttachmentService
 from .services.attachments_cleanup import cleanup_expired_attachments
 from .services.client_profiles import ClientProfileService
-from .services.client_tool_preferences import ClientToolPreferences
 from .services.mcp_management import MCPManagementService
 from .services.mcp_server_settings import MCPServerSettingsService
 from .services.model_settings import ModelSettingsService
 from .services.suggestions import SuggestionsService
+from .services.tool_preferences import KioskToolPreferences
 
 
 def _configure_logging() -> None:
@@ -115,11 +115,9 @@ def create_app() -> FastAPI:
             raise ValueError(f"Configured path {resolved} escapes project root {base}")
         return resolved
 
-    # Model settings service now reads from ClientSettingsService for 'svelte' client
     model_settings_service = ModelSettingsService(
         default_model=settings.default_model,
         default_system_prompt=settings.openrouter_system_prompt,
-        client_id="svelte",
     )
 
     mcp_servers_path = _resolve_under(project_root, settings.mcp_servers_path)
@@ -139,7 +137,7 @@ def create_app() -> FastAPI:
         mcp_settings_service,
     )
 
-    # MCP management and client tool preferences
+    # MCP management and kiosk tool preferences
     mcp_management_service = MCPManagementService(
         orchestrator.get_mcp_client(),
         mcp_settings_service,
@@ -148,8 +146,8 @@ def create_app() -> FastAPI:
     tool_preferences_path = _resolve_under(
         project_root, Path("data/client_tool_preferences.json")
     )
-    client_tool_preferences = ClientToolPreferences(tool_preferences_path)
-    orchestrator.set_tool_preferences(client_tool_preferences)
+    tool_preferences = KioskToolPreferences(tool_preferences_path)
+    orchestrator.set_tool_preferences(tool_preferences)
     orchestrator.set_mcp_management(mcp_management_service)
 
     attachment_service = AttachmentService(
@@ -249,7 +247,7 @@ def create_app() -> FastAPI:
     app.state.chat_orchestrator = orchestrator
     app.state.mcp_server_settings_service = mcp_settings_service
     app.state.mcp_management_service = mcp_management_service
-    app.state.client_tool_preferences = client_tool_preferences
+    app.state.tool_preferences = tool_preferences
     app.state.attachment_service = attachment_service
     app.state.suggestions_service = suggestions_service
     app.state.client_profile_service = client_profile_service
@@ -271,10 +269,10 @@ def create_app() -> FastAPI:
 
     app.include_router(chat_router)
     app.include_router(mcp_router)
-    app.include_router(stt_router)
     app.include_router(azure_stt_router)
     app.include_router(keyword_router)
-    app.include_router(clients_router)
+    app.include_router(settings_router)
+    app.include_router(presets_router)
     app.include_router(profiles_router)
     app.include_router(weather_router)
     app.include_router(slideshow_router)
@@ -287,7 +285,6 @@ def create_app() -> FastAPI:
     from .services.kiosk_chat_service import KioskChatService
     from .services.stt_service import STTService
     from .services.tts_service import TTSService
-    from .services.voice_chat_service import VoiceChatService
     from .services.voice_session import VoiceConnectionManager
 
     try:
@@ -296,8 +293,6 @@ def create_app() -> FastAPI:
         app.state.tts_service = TTSService()
         # Initialize KioskChatService with the orchestrator for tool support
         app.state.kiosk_chat_service = KioskChatService(orchestrator)
-        # Initialize VoiceChatService for the voice PWA (separate from kiosk)
-        app.state.voice_chat_service = VoiceChatService(orchestrator)
         # Wire alarm scheduler to voice manager for WebSocket notifications
         alarm_scheduler.set_voice_manager(app.state.voice_manager)
         app.include_router(voice_assistant.router)

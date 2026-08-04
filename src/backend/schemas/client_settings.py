@@ -1,12 +1,8 @@
-"""Unified client settings schemas.
-
-These schemas are shared across all clients (kiosk, svelte, cli).
-Each client stores its own data but uses the same structure.
-"""
+"""Kiosk settings schemas."""
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from backend.services.time_context import EASTERN_TIMEZONE_NAME
 
@@ -362,11 +358,11 @@ class PresetModelFilters(BaseModel):
 
 
 # =============================================================================
-# Client Presets
+# Kiosk presets
 # =============================================================================
 
 
-class ClientPreset(BaseModel):
+class KioskPreset(BaseModel):
     """A preset configuration bundle including LLM settings and MCP preferences."""
 
     name: str = Field(description="Display name for the preset")
@@ -391,19 +387,8 @@ class ClientPreset(BaseModel):
         default=None, description="ISO timestamp when preset was last modified"
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_mcp_nulls(cls, data: Any) -> Any:
-        """Migrate legacy null MCP fields to concrete empty values."""
-        if isinstance(data, dict):
-            if data.get("enabled_servers") is None:
-                data["enabled_servers"] = []
-            if data.get("disabled_tools") is None:
-                data["disabled_tools"] = {}
-        return data
 
-
-class ClientPresetUpdate(BaseModel):
+class KioskPresetUpdate(BaseModel):
     """Partial update for a preset."""
 
     name: Optional[str] = None
@@ -415,10 +400,10 @@ class ClientPresetUpdate(BaseModel):
     disabled_tools: Optional[dict[str, list[str]]] = None
 
 
-class ClientPresets(BaseModel):
-    """Collection of presets for a client."""
+class KioskPresets(BaseModel):
+    """Collection of kiosk presets."""
 
-    presets: list[ClientPreset] = Field(default_factory=list)
+    presets: list[KioskPreset] = Field(default_factory=list)
     active_index: Optional[int] = Field(
         default=None,
         description="Index of currently active preset",
@@ -468,12 +453,12 @@ class UiSettingsUpdate(BaseModel):
 
 
 # =============================================================================
-# Complete Client Settings Bundle
+# Complete kiosk settings bundle
 # =============================================================================
 
 
-class ClientSettings(BaseModel):
-    """Complete settings bundle for a client (excludes MCP servers - they're global)."""
+class KioskSettings(BaseModel):
+    """Complete kiosk settings bundle (excluding MCP server configuration)."""
 
     llm: LlmSettings = Field(default_factory=LlmSettings)
     stt: Optional[SttSettings] = None
@@ -490,10 +475,10 @@ __all__ = [
     "TtsSettingsUpdate",
     "UiSettings",
     "UiSettingsUpdate",
-    "ClientPreset",
-    "ClientPresetUpdate",
-    "ClientPresets",
-    "ClientSettings",
+    "KioskPreset",
+    "KioskPresetUpdate",
+    "KioskPresets",
+    "KioskSettings",
     "MultiSelectFilter",
     "PresetModelFilters",
 ]

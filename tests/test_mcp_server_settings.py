@@ -125,13 +125,13 @@ class StubSettingsService:
 
 class StubToolPreferences:
     def __init__(self) -> None:
-        self._data: dict[str, list[str]] = {}
+        self._data: list[str] | None = None
 
-    async def get_enabled_servers(self, client_id: str) -> list[str] | None:
-        return self._data.get(client_id)
+    async def get_enabled_servers(self) -> list[str] | None:
+        return self._data
 
-    async def set_enabled_servers(self, client_id: str, server_ids: list[str]) -> None:
-        self._data[client_id] = server_ids
+    async def set_enabled_servers(self, server_ids: list[str]) -> None:
+        self._data = server_ids
 
 
 # ------------------------------------------------------------------
@@ -440,17 +440,17 @@ async def test_router_preferences_roundtrip() -> None:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Initially no preferences set (None = all servers enabled)
-        resp = await client.get("/api/mcp/preferences/svelte")
+        resp = await client.get("/api/mcp/preferences")
         assert resp.status_code == 200
         assert resp.json()["enabled_servers"] is None
 
         # Update
         resp = await client.put(
-            "/api/mcp/preferences/svelte",
+            "/api/mcp/preferences",
             json={"enabled_servers": ["notes", "housekeeping"]},
         )
         assert resp.status_code == 200
 
         # Read back
-        resp = await client.get("/api/mcp/preferences/svelte")
+        resp = await client.get("/api/mcp/preferences")
         assert resp.json()["enabled_servers"] == ["notes", "housekeeping"]

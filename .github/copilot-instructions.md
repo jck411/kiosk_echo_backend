@@ -79,7 +79,7 @@ The deploy script handles this automatically.
 
 ## Architecture
 
-- MCP tools are external (LXC 110, ports 9003–9017) — never embed tool logic
+- MCP tools are external (LXC 117, ports 9004–9015) — never embed tool logic
 - `ChatOrchestrator` coordinates streaming, tools, persistence
 - `StreamingHandler` manages SSE events and tool execution loops
 - Runtime data lives in `data/` at project root (not `src/backend/data/`)

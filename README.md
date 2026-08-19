@@ -1,4 +1,4 @@
-# Chat Backend (FastAPI)
+# Echo Kiosk Backend
 
 FastAPI backend for the kiosk's AI chat and voice features. It streams responses
 from OpenRouter, manages kiosk settings, and exposes tools hosted on external

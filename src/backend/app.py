@@ -237,9 +237,9 @@ def create_app() -> FastAPI:
                 logging.warning("Error during orchestrator shutdown: %s", exc)
 
     app = FastAPI(
-        title="OpenRouter Chat Backend",
+        title="Echo Kiosk Backend",
         version="0.1.0",
-        description="Streaming chat backend powered by OpenRouter and MCP.",
+        description="AI chat, voice, settings, and MCP API for the Echo kiosk.",
         lifespan=lifespan,
     )
 

@@ -1,4 +1,4 @@
-# Copilot Instructions — Chat_backend_fastapi
+# Copilot Instructions — kiosk_echo_backend
 
 FastAPI backend for AI chat with MCP tool orchestration. **Backend-only repo.**
 The kiosk web frontend lives in a separate repo (`kiosk_echo_frontend`) and is
